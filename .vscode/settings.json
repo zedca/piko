@@ -1,0 +1,6 @@
+{
+    // "Piko: 桌面开发版 (Attach 5005)" 的 preLaunchTask 要先编译再启动 JVM，
+    // 经常超过 10 秒。默认提示里的 "Abort" 会直接 SIGTERM 掉正在编译的 Gradle，
+    // 这里关掉这个慢任务提示；真正的失败仍会以任务错误的形式显示。
+    "debug.hideSlowPreLaunchWarning": true
+}

@@ -1,0 +1,24 @@
+{
+    // 需要扩展 fwcd.kotlin（见 extensions.json）：它的 Kotlin 调试适配器直接通过 DAP
+    // 附加到 Gradle 以 --debug-jvm 启动的 JVM，不依赖 Java 语言服务器。
+    // 首次 F5 时扩展会询问是否下载语言服务器与调试适配器，需选择「Ok, continue」；
+    // 若选择 Disable 或直接关闭提示，扩展会永久关闭调试适配器，JVM 将一直挂在 5005。
+    // 不要改回 "type": "java"：vscjava.vscode-java-debug 的 attach 会向 Java 扩展请求
+    // vscode.java.startDebugSession，本仓库没有安装该扩展，调试器不会附加，任务看起来
+    // 像编译了十几分钟。
+    // 调试流程：先由 preLaunchTask 以 --debug-jvm 启动 Gradle 任务，JVM 在 5005 等待，
+    // 任务匹配到 "Listening for transport dt_socket" 后 VS Code 再附加。
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "kotlin",
+            "name": "Piko: 桌面开发版 (Attach 5005)",
+            "request": "attach",
+            "projectRoot": "${workspaceFolder}",
+            "hostName": "127.0.0.1",
+            "port": 5005,
+            "timeout": 300000,
+            "preLaunchTask": "Piko: 运行开发版 (等待调试器)"
+        }
+    ]
+}

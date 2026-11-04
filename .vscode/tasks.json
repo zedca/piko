@@ -1,0 +1,213 @@
+{
+    // macOS 本机的编译 / 运行 / 部署入口。打包与 jpackage 都不能交叉构建，
+    // 所以这些任务只在 macOS 上有意义（DMG 与 .app 仅支持 Apple Silicon）。
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Piko: 检查 macOS 环境",
+            "detail": "检查 JDK 21 / Zulu 25、Xcode 命令行工具、Android SDK、pikpak-kotlin 与配置",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/check-env.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Piko: 修复 macOS 环境",
+            "detail": "写入 local.properties 与 ~/.gradle/gradle.properties，不安装软件",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/check-env.sh",
+            "args": [
+                "--fix"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Piko: 克隆 SDK 并修复环境",
+            "detail": "pikpak-kotlin 缺失时克隆到 ~/DataSync/RemoteGHProject/pikpak-kotlin",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/check-env.sh",
+            "args": [
+                "--fix",
+                "--clone-sdk"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Piko: 编译桌面端 (macOS)",
+            "detail": "scripts/macos/gradle.sh :desktopApp:compileKotlinDesktop",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/gradle.sh",
+            "args": [
+                ":desktopApp:compileKotlinDesktop",
+                "--console=plain"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": {
+                "owner": "kotlin",
+                "source": "kotlin",
+                "pattern": [
+                    {
+                        "regexp": "^e: (?:file://)?(.+?):(\\d+):(\\d+) (.+)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "message": 4,
+                        "severity": 1
+                    }
+                ]
+            }
+        },
+        {
+            "label": "Piko: 编译 Android + 桌面端",
+            "detail": "改动 shared / ui 后按 AGENTS.md 要求双端同时验证",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/gradle.sh",
+            "args": [
+                ":app:compileDebugKotlin",
+                ":desktopApp:compileKotlinDesktop",
+                "--console=plain"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": {
+                "owner": "kotlin",
+                "source": "kotlin",
+                "pattern": [
+                    {
+                        "regexp": "^e: (?:file://)?(.+?):(\\d+):(\\d+) (.+)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "message": 4,
+                        "severity": 1
+                    }
+                ]
+            }
+        },
+        {
+            "label": "Piko: 运行开发版 (macOS)",
+            "detail": "scripts/macos/dev-run.sh，数据目录 ~/.piko-dev",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/dev-run.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Piko: 运行开发版 (等待调试器)",
+            "detail": "在 5005 端口等待 VS Code 附加，供 launch.json 使用",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/dev-run.sh",
+            "args": [
+                "--debug-jvm",
+                // VS Code 的任务终端是 PTY，Gradle 默认会启用 rich console 重绘进度条；
+                // 关掉后每行只输出一次，beginsPattern/endsPattern 不会被控制字符干扰。
+                "--console=plain"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "isBackground": true,
+            // beginsPattern 必须匹配 dev-run.sh 在编译前立刻打印的哨兵行，不能匹配
+            // "> Task :desktopApp:run"：VS Code 的 preLaunchTask 有 5 秒看门狗，编译和
+            // Gradle 配置经常超过 5 秒，beginsPattern 迟迟不命中就会报
+            // "has not exited and doesn't have a 'problemMatcher' defined"。
+            "problemMatcher": {
+                "owner": "piko-debug",
+                "source": "kotlin",
+                "pattern": [
+                    {
+                        "regexp": "^e: (?:file://)?(.+?):(\\d+):(\\d+) (.+)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "message": 4,
+                        "severity": 1
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    // 不加 ^ / $ 锚点：Gradle 的 rich console 会在同一行重绘进度条，
+                    // VS Code 从 xterm 缓冲区取到的行可能带前后残留字符。
+                    "beginsPattern": "\\[piko-debug\\]",
+                    "endsPattern": "Listening for transport dt_socket at address: 5005"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "Piko: 部署到 /Applications",
+            "detail": "构建 .app 并安装到 /Applications/Piko.app 后启动",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/deploy.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Piko: 部署到 /Applications (Release)",
+            "detail": "ProGuard 裁剪的 Release 构建，仍使用 ~/.piko-dev",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/deploy.sh",
+            "args": [
+                "--release"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Piko: 打包 DMG",
+            "detail": "产物在 desktopApp/build/compose/binaries/main/dmg/",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/gradle.sh",
+            "args": [
+                ":desktopApp:packageDmg"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Piko: 测试 shared + ui",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/macos/gradle.sh",
+            "args": [
+                ":shared:desktopTest",
+                ":ui:desktopTest"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "problemMatcher": []
+        }
+    ]
+}
